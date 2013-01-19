@@ -1,0 +1,137 @@
+$def with (item)
+<!DOCTYPE html>
+<head>
+	<meta charset="utf-8">
+	<title>AdminPanel</title>
+	<link media="all" rel="stylesheet" type="text/css" href="static/css/all.css" />
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	<script type="text/javascript">window.jQuery || document.write('<script type="text/javascript" src="static/js/jquery-1.7.2.min.js"><\/script>');</script>
+	<script type="text/javascript" src="static/js/jquery.main.js"></script>
+	<script type="text/javascript" src="static/js/jquery.flot.js"></script>
+	<script type="text/javascript" src="static/js/jquery.flot.resize.js"></script>
+	<script type="text/javascript" src="static/js/underscore-min.js"></script>
+	<!--[if lt IE 9]><link rel="stylesheet" type="text/css" href="static/css/ie.css" /><![endif]-->
+</head>
+<body>
+	<div id="wrapper">
+		<div id="content">
+			<div class="c1">
+				<div class="controls">
+					<h1>RaspberryPi Dashboard</h1>
+				</div>
+				<div class="tabs">
+					<div id="tab-1" class="tab">
+						<article>
+							<div class="text-section">
+								<h1>Temperature</h1>
+								<p>Current system temperature: <span id="curr-temp"></span>&deg;</p>
+							</div>
+							<div class="panel full">
+								<div id="chart"></div>
+							</div>
+						</article>
+					</div>
+					<div id="tab-2" class="tab">
+						<article>
+							<div class="text-section">
+								<h1>Torrents</h1>
+								<p>Transmission torrent downloads</p>
+							</div>
+							<div class="panel full" id = "torrent-panel">
+							</div>
+						</article>
+					</div>
+				</div>
+			</div>
+		</div>
+		<aside id="sidebar">
+			<ul class="tabset buttons">
+				<li class="active">
+					<a href="#tab-1" class="ico1"><span>Temperature</span><em></em></a>
+					<span class="tooltip"><span>Temperature</span></span>
+				</li>
+				<li>
+					<a href="#tab-2" class="ico7"><span>Torrents</span><em></em></a>
+					<span class="tooltip"><span>Torrents</span></span>
+				</li>
+			</ul>
+			<span class="shadow"></span>
+		</aside>
+	</div>
+	<script type="text/html" id="torrents-template">
+		<ol>
+			<% _.each(torrents, function(torrent) { %>
+			<li>
+				<div class="torrent">
+					<h3><%= torrent.name %></h3>
+					<p>Status: <%= torrent.status %> | Progress: <%= parseFloat(torrent.progress).toFixed(2) %>% | ETA: <%= torrent.eta %></p>
+				</div>
+			</li>
+			<% }); %>
+		</ol>
+	</script>
+	<script>
+	function initPlot(){
+		var data = [], totalPoints = 900;
+		for (var i = 0; i < totalPoints; ++i){
+			data.push([i, 0])
+		}
+		function appendData(item) {
+			if(!item){
+				item=0;
+			}
+			data = data.slice(1);
+			data.push(item);
+
+			var res = [];
+			for (var i = 0; i < data.length; ++i)
+				res.push([i, data[i]])
+			return res;
+		}
+		
+		// setup plot
+		var options = {
+			series: { shadowSize: 0 }, // drawing is faster without shadows
+			yaxis: { min: 40, max: 60 },
+			xaxis: { show: false }
+		};
+		
+		var plot = $$.plot($$("#chart"), [ appendData() ], options);
+		
+		function updatePlot(temperature){
+			$$('#curr-temp').text(temperature);
+			plot.setData([ appendData(temperature) ]);
+			plot.draw();
+		}
+		
+		return {update: updatePlot}
+	}
+	
+	function initTorrents(){
+		var template = _.template(($$('#torrents-template').html()));
+		
+		function update(torrents){
+			$$('#torrent-panel').empty();
+			$$('#torrent-panel').html(template(torrents));
+		}
+		
+		return {update: update};
+	}
+	$$(function () {
+		var updateInterval = 2000;
+		plot = initPlot();
+		torrents = initTorrents();
+
+		function update() {
+			$$.getJSON('/stats', function(result){
+				plot.update(result.temperature);
+				torrents.update(result);
+			});
+			setTimeout(update, updateInterval);
+		}
+
+		update();
+	});
+	</script>
+</body>
+</html>
